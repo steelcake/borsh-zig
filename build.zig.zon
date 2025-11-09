@@ -1,9 +1,14 @@
 .{
     .name = .borsh,
-    .version = "0.0.12",
+    .version = "0.0.13",
     .fingerprint = 0x569b4b04d9a452be, // Changing this has security and trust implications.
     .minimum_zig_version = "0.16.0-dev.464+df1909900",
-    .dependencies = .{},
+    .dependencies = .{
+        .fuzzin = .{
+            .url = "https://github.com/steelcake/fuzzin/archive/refs/tags/v0.0.5.tar.gz",
+            .hash = "fuzzin-0.0.5-CogiHkdYAAB1PxHbSk0NpIyesmvEpm3AeQsh_x-BRIY6",
+        },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",

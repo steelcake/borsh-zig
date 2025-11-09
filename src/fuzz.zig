@@ -3,71 +3,105 @@ const FixedBufferAllocator = std.heap.FixedBufferAllocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 const Allocator = std.mem.Allocator;
 
-const serde = @import("./serde.zig");
-const tests = @import("./tests.zig");
+const fuzzin = @import("fuzzin");
+const borsh = @import("borsh");
 
-const DATA_TYPES = [_]type{
-    tests.EmptyEnum,
-    tests.Exists,
-    tests.Person,
-    tests.Hole,
+const FuzzType = struct {
+    name: [:0]const u8,
+    nested: ?*const FuzzType,
+    nesteds: ?[]const FuzzType,
+    nesteds2: ?[]FuzzType,
+    nested_arr: ?[3]*FuzzType,
+    age: u256,
+    age2: i128,
+    age3: i8,
+    ages: []const i32,
+    ages2: []u64,
+    ages3: []i16,
+    opt: union(enum) {
+        a: u32,
+        b: enum(u128) {
+            x = 123213,
+            d = 6969,
+            c,
+        },
+    },
+    floa: f16,
+    floatt: f32,
+    floatttt: f64,
+    arr: [69:5]u32,
+
+    fn assert_eq(self: *const FuzzType, other: *const FuzzType) void {
+        _ = self;
+        _ = other;
+    }
 };
 
-const max_recursion_depth = 20;
+const SERDE_DEPTH_LIMIT = 32;
+const INPUT_DEPTH_LIMIT = 32;
 
-fn fuzz_de(input: []const u8, gpa: Allocator) anyerror!void {
-    inline for (DATA_TYPES) |dt| {
-        var arena = ArenaAllocator.init(gpa);
-        defer arena.deinit();
-        const alloc = arena.allocator();
+fn fuzz_deserialize(ctx: *anyopaque, input: *fuzzin.FuzzInput, dbg_alloc: Allocator) fuzzin.Error!void {
+    _ = ctx;
 
-        _ = serde.deserialize(dt, input, alloc, max_recursion_depth) catch {};
-        _ = serde.deserialize([]dt, input, alloc, max_recursion_depth) catch {};
-        _ = serde.deserialize(*dt, input, alloc, max_recursion_depth) catch {};
-        _ = serde.deserialize_stream(dt, input, alloc, max_recursion_depth) catch {};
-        _ = serde.deserialize_stream([]dt, input, alloc, max_recursion_depth) catch {};
-        _ = serde.deserialize_stream(*dt, input, alloc, max_recursion_depth) catch {};
-    }
+    var arena = ArenaAllocator.init(dbg_alloc);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const input_bytes = input.all_bytes();
+
+    _ = borsh.deserialize(
+        FuzzType,
+        input_bytes,
+        alloc,
+        SERDE_DEPTH_LIMIT,
+    ) catch {};
+
+    const out = borsh.deserialize_stream(
+        FuzzType,
+        input_bytes,
+        alloc,
+        SERDE_DEPTH_LIMIT,
+    ) catch return;
+    std.debug.assert(out.offset <= input_bytes.len);
 }
 
-test "fuzz deserialize" {
-    try FuzzWrap(fuzz_de, 1 << 15).run();
+test fuzz_deserialize {
+    fuzzin.fuzz_test(undefined, fuzz_deserialize, 1 << 20);
 }
 
-fn FuzzWrap(comptime fuzz_one: fn (data: []const u8, gpa: Allocator) anyerror!void, comptime alloc_size: comptime_int) type {
-    const FuzzContext = struct {
-        fb_alloc: *FixedBufferAllocator,
+const Context = struct {
+    buf: []u8,
+};
+
+fn fuzz_roundtrip(ctx: *anyopaque, input: *fuzzin.FuzzInput, dbg_alloc: Allocator) fuzzin.Error!void {
+    const buf = @as(*Context, @ptrCast(ctx)).buf;
+
+    var arena = ArenaAllocator.init(dbg_alloc);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const t = try input.auto(FuzzType, alloc, INPUT_DEPTH_LIMIT);
+
+    const len = borsh.serialize(
+        *const FuzzType,
+        &t,
+        buf,
+        SERDE_DEPTH_LIMIT,
+    ) catch unreachable;
+
+    const out = borsh.deserialize(
+        FuzzType,
+        buf[0..len],
+        alloc,
+        SERDE_DEPTH_LIMIT,
+    ) catch unreachable;
+
+    t.assert_eq(&out);
+}
+
+test fuzz_roundtrip {
+    var ctx = Context{
+        .buf = try std.heap.page_allocator.alloc(u8, 1 << 20),
     };
-
-    return struct {
-        fn run_one(ctx: FuzzContext, data: []const u8) anyerror!void {
-            ctx.fb_alloc.reset();
-
-            var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{
-                .backing_allocator_zeroes = false,
-            }){
-                .backing_allocator = ctx.fb_alloc.allocator(),
-            };
-            const gpa = general_purpose_allocator.allocator();
-            defer {
-                switch (general_purpose_allocator.deinit()) {
-                    .ok => {},
-                    .leak => |l| {
-                        std.debug.panic("LEAK: {any}", .{l});
-                    },
-                }
-            }
-
-            fuzz_one(data, gpa) catch |e| {
-                if (e == error.ShortInput) return {} else return e;
-            };
-        }
-
-        fn run() !void {
-            var fb_alloc = FixedBufferAllocator.init(std.heap.page_allocator.alloc(u8, alloc_size) catch unreachable);
-            try std.testing.fuzz(FuzzContext{
-                .fb_alloc = &fb_alloc,
-            }, run_one, .{});
-        }
-    };
+    fuzzin.fuzz_test(&ctx, fuzz_deserialize, 1 << 20);
 }

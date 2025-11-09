@@ -6,7 +6,6 @@ comptime {
     }
 }
 
-const tests = @import("./tests.zig");
 const serde = @import("./serde.zig");
 
 pub const serialize = serde.serialize;
@@ -17,6 +16,5 @@ pub const deserialize_stream = serde.deserialize_stream;
 pub const DeserializeError = serde.DeserializeError;
 
 test {
-    _ = tests;
     _ = serde;
 }

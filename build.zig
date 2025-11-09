@@ -4,6 +4,11 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const fuzzin = b.dependency("fuzzin", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const mod = b.addModule("borsh", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
@@ -29,6 +34,8 @@ pub fn build(b: *std.Build) void {
         // https://github.com/ziglang/zig/issues/23423
         .use_llvm = true,
     });
+    fuzz.root_module.addImport("fuzzin", fuzzin.module("fuzzin"));
+    fuzz.root_module.addImport("borsh", mod);
 
     const run_fuzz = b.addRunArtifact(fuzz);
 
