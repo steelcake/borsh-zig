@@ -37,7 +37,7 @@ fn serialize_impl(
                 return SerializeError.BufferTooSmall;
             }
 
-            @as([*][num_bytes]u8, @ptrCast(output.ptr)).* = @bitCast(val);
+            @as([*][num_bytes]u8, @ptrCast(output.ptr))[0] = @bitCast(val);
 
             return num_bytes;
         },
@@ -52,7 +52,7 @@ fn serialize_impl(
                 return SerializeError.BufferTooSmall;
             }
 
-            @as([*][num_bytes]u8, @ptrCast(output.ptr)).* = @bitCast(val);
+            @as([*][num_bytes]u8, @ptrCast(output.ptr))[0] = @bitCast(val);
             return num_bytes;
         },
         .void => return 0,
@@ -162,7 +162,7 @@ fn serialize_impl(
                 @compileError("enum is too big to be represented by u8");
             }
 
-            const tag = @intFromEnum(val.*);
+            const tag = @intFromEnum(val);
 
             if (output.len < 1) {
                 return SerializeError.BufferTooSmall;
@@ -347,7 +347,7 @@ fn deserialize_impl(
 
             return @bitCast(@as([*]const [num_bytes]u8, @ptrCast(in.ptr))[0]);
         },
-        .void => return .{},
+        .void => return {},
         .bool => {
             const in = input[offset.*..];
 
@@ -380,9 +380,9 @@ fn deserialize_impl(
                         return DeserializeError.InputTooSmall;
                     }
 
-                    const out: [num_bytes]u8 = @as([*]const [num_bytes]u8, in.ptr).*;
+                    const out: [num_bytes]u8 = @as([*]const [num_bytes]u8, @ptrCast(in.ptr))[0];
 
-                    offset += num_bytes;
+                    offset.* += num_bytes;
 
                     for (out) |v| {
                         if (v > 1) {
@@ -390,7 +390,12 @@ fn deserialize_impl(
                         }
                     }
 
-                    return @bitCast(out);
+                    var out_b: [num_bytes]bool = undefined;
+                    for (0..array_info.len) |idx| {
+                        out_b[idx] = out[idx] != 0;
+                    }
+
+                    return out_b;
                 },
                 .int, .float => {
                     const num_bytes = @sizeOf(array_info.child) * array_info.len;
@@ -483,7 +488,7 @@ fn deserialize_impl(
                             const out = try allocator.alloc(u8, num_bytes);
                             @memcpy(out, in.ptr);
 
-                            offset += num_bytes;
+                            offset.* += num_bytes;
 
                             for (out) |v| {
                                 if (v > 1) {
