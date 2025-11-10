@@ -58,14 +58,14 @@ pub fn FuzzTest(comptime T: type, alloc_size: usize, max_depth: u8) type {
                 t,
                 buf,
                 max_depth,
-            ) catch unreachable;
+            ) catch @panic("failed serialize");
 
             const out = serde.deserialize(
                 T,
                 buf[0..len],
                 alloc,
                 max_depth,
-            ) catch unreachable;
+            ) catch @panic("failed deserialize");
 
             assert_eq(T, t, out);
         }

@@ -127,13 +127,15 @@ fn serialize_impl(
                         .float, .int, .bool => {
                             const num_bytes = @sizeOf(ptr_info.child) * val.len;
 
-                            if (output.len < num_bytes) {
+                            const out = output[n_written..];
+
+                            if (out.len < num_bytes) {
                                 return SerializeError.BufferTooSmall;
                             }
 
-                            @memcpy(output.ptr, @as([]const u8, @ptrCast(val)));
+                            @memcpy(out.ptr, @as([]const u8, @ptrCast(val)));
 
-                            return num_bytes;
+                            return num_bytes + n_written;
                         },
                         else => {
                             for (val) |elem| {
