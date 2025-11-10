@@ -14,6 +14,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    mod.addImport("fuzzin", fuzzin.module("fuzzin"));
 
     const mod_tests = b.addTest(.{
         .root_module = mod,
@@ -34,7 +35,6 @@ pub fn build(b: *std.Build) void {
         // https://github.com/ziglang/zig/issues/23423
         .use_llvm = true,
     });
-    fuzz.root_module.addImport("fuzzin", fuzzin.module("fuzzin"));
     fuzz.root_module.addImport("borsh", mod);
 
     const run_fuzz = b.addRunArtifact(fuzz);

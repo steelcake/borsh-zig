@@ -15,6 +15,8 @@ pub const deserialize = serde.deserialize;
 pub const deserialize_stream = serde.deserialize_stream;
 pub const DeserializeError = serde.DeserializeError;
 
+pub const FuzzTest = @import("./fuzzin.zig").FuzzTest;
+
 test {
     _ = serde;
 }

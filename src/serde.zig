@@ -65,14 +65,35 @@ fn serialize_impl(
         },
         .array => |array_info| {
             switch (@typeInfo(array_info.child)) {
-                .float, .int, .bool => {
+                .bool => {
+                    if (array_info.sentinel_ptr != null) {
+                        @compileError("bool array with sentinel isn't supported");
+                    }
+
+                    const num_bytes = array_info.len;
+
+                    if (output.len < num_bytes) {
+                        return SerializeError.BufferTooSmall;
+                    }
+
+                    var out: [array_info.len]u8 = undefined;
+                    inline for (0..array_info.len) |idx| {
+                        out[idx] = @intFromBool(val[idx]);
+                    }
+
+                    @as([*][num_bytes]u8, @ptrCast(output.ptr))[0] = out;
+
+                    return num_bytes;
+                },
+                .float, .int => {
                     const num_bytes = @sizeOf(array_info.child) * array_info.len;
 
                     if (output.len < num_bytes) {
                         return SerializeError.BufferTooSmall;
                     }
 
-                    @as([*][num_bytes]u8, output.ptr).* = @bitCast(val);
+                    const without_sentinel: [array_info.len]array_info.child = val;
+                    @as([*][num_bytes]u8, @ptrCast(output.ptr))[0] = @bitCast(without_sentinel);
 
                     return num_bytes;
                 },
