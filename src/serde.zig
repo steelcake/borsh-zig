@@ -37,7 +37,7 @@ fn serialize_impl(
                 return SerializeError.BufferTooSmall;
             }
 
-            @as([*][num_bytes]u8, @ptrCast(output.ptr))[0] = @bitCast(val);
+            @as([][num_bytes]u8, @ptrCast(output[0..num_bytes]))[0] = @bitCast(val);
 
             return num_bytes;
         },
@@ -52,7 +52,7 @@ fn serialize_impl(
                 return SerializeError.BufferTooSmall;
             }
 
-            @as([*][num_bytes]u8, @ptrCast(output.ptr))[0] = @bitCast(val);
+            @as([][num_bytes]u8, @ptrCast(output[0..num_bytes]))[0] = @bitCast(val);
             return num_bytes;
         },
         .void => return 0,
@@ -60,7 +60,7 @@ fn serialize_impl(
             if (output.len < 1) {
                 return SerializeError.BufferTooSmall;
             }
-            output.ptr[0] = @intFromBool(val);
+            output[0] = @intFromBool(val);
             return 1;
         },
         .array => |array_info| {
@@ -81,7 +81,7 @@ fn serialize_impl(
                         out[idx] = @intFromBool(val[idx]);
                     }
 
-                    @as([*][num_bytes]u8, @ptrCast(output.ptr))[0] = out;
+                    @as([][num_bytes]u8, @ptrCast(output[0..num_bytes]))[0] = out;
 
                     return num_bytes;
                 },
@@ -93,7 +93,7 @@ fn serialize_impl(
                     }
 
                     const without_sentinel: [array_info.len]array_info.child = val;
-                    @as([*][num_bytes]u8, @ptrCast(output.ptr))[0] = @bitCast(without_sentinel);
+                    @as([][num_bytes]u8, @ptrCast(output[0..num_bytes]))[0] = @bitCast(without_sentinel);
 
                     return num_bytes;
                 },
@@ -133,7 +133,7 @@ fn serialize_impl(
                                 return SerializeError.BufferTooSmall;
                             }
 
-                            @memcpy(out.ptr, @as([]const u8, @ptrCast(val)));
+                            @memcpy(out[0..num_bytes], @as([]const u8, @ptrCast(val)));
 
                             return num_bytes + n_written;
                         },
@@ -352,7 +352,7 @@ fn deserialize_impl(
 
             offset.* += num_bytes;
 
-            return @bitCast(@as([*]const [num_bytes]u8, @ptrCast(in.ptr))[0]);
+            return @bitCast(@as([]const [num_bytes]u8, @ptrCast(in[0..num_bytes]))[0]);
         },
         .float => |float_info| {
             if (float_info.bits != 16 and float_info.bits != 32 and float_info.bits != 64) {
@@ -368,7 +368,7 @@ fn deserialize_impl(
 
             offset.* += num_bytes;
 
-            return @bitCast(@as([*]const [num_bytes]u8, @ptrCast(in.ptr))[0]);
+            return @bitCast(@as([]const [num_bytes]u8, @ptrCast(in[0..num_bytes]))[0]);
         },
         .void => return {},
         .bool => {
@@ -403,7 +403,7 @@ fn deserialize_impl(
                         return DeserializeError.InputTooSmall;
                     }
 
-                    const out: [num_bytes]u8 = @as([*]const [num_bytes]u8, @ptrCast(in.ptr))[0];
+                    const out: [num_bytes]u8 = @as([]const [num_bytes]u8, @ptrCast(in[0..num_bytes]))[0];
 
                     offset.* += num_bytes;
 
@@ -430,7 +430,7 @@ fn deserialize_impl(
                     }
 
                     const out: [array_info.len]array_info.child = @bitCast(
-                        @as([*]const [num_bytes]u8, @ptrCast(in.ptr))[0],
+                        @as([]const [num_bytes]u8, @ptrCast(in[0..num_bytes]))[0],
                     );
 
                     offset.* += num_bytes;
@@ -509,7 +509,7 @@ fn deserialize_impl(
                             }
 
                             const out = try allocator.alloc(u8, num_bytes);
-                            @memcpy(out, in.ptr);
+                            @memcpy(out, in[0..num_bytes]);
 
                             offset.* += num_bytes;
 
